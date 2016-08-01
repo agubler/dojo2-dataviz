@@ -296,15 +296,17 @@ const createColumnPlot: ColumnPlotFactory<any> = compose({
 		}
 
 		return series.map((column, index) => {
+			const isNegative = column.relativeValue < 0;
 			const displayHeight = column.relativeValue * displayHeightCorrection * columnHeight;
 			const x1 = (displayWidth + columnSpacing) * index;
 			const x2 = x1 + displayWidth + columnSpacing;
-			const y1 = displayHeight < 0 ? positiveHeight : positiveHeight - displayHeight;
-			const y2 = displayHeight < 0 ? positiveHeight - displayHeight : positiveHeight;
+			const y1 = isNegative ? positiveHeight : positiveHeight - displayHeight;
+			const y2 = isNegative ? positiveHeight - displayHeight : positiveHeight;
 			return {
 				datum: column,
 				displayHeight: Math.abs(displayHeight),
 				displayWidth,
+				isNegative,
 				offsetLeft: columnSpacing / 2,
 				x1,
 				x2,

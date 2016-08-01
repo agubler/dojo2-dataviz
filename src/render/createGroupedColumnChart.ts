@@ -168,6 +168,7 @@ const createGroupedColumnChart: GenericGroupedColumnChartFactory<any, any> = cre
 								totalValue,
 								value
 							},
+							isNegative: false, // TODO
 							x1,
 							x2,
 							y1,

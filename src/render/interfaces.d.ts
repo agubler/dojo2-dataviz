@@ -1,7 +1,23 @@
 import { Datum } from '../data/interfaces';
 
+/**
+ * Limits how values are plotted given the chart size.
+ *
+ * The first number is the minimum value, which must be less than or equal to zero.
+ * The second number is the maximum value, which must be greater than or equal to zero.
+ *
+ * When [0, 0] no limit applies.
+ *
+ * For example for a column chart, [0, 50] means inputs with value=50 are plotted with the full column height.
+ */
 export type Domain = [number, number];
 
+/**
+ * Option for defining a domain.
+ *
+ * If just a number, and less than zero, the resulting domain will be [number, 0]. If greater than zero it'll be
+ * [0, number]. Otherwise the domain will be [0, 0].
+ */
 export type DomainOption = number | Domain;
 
 /**
@@ -27,6 +43,11 @@ export interface Point<D extends Datum<any>> {
 	 * Datum represented by the point.
 	 */
 	datum: D;
+
+	/**
+	 * Whether the point is on a negative axis.
+	 */
+	isNegative: boolean;
 
 	/**
 	 * Horizontal start position.

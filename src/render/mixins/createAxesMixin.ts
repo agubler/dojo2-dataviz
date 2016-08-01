@@ -10,9 +10,7 @@ import { Domain, Invalidatable, Point } from '../interfaces';
 
 Hello! This mixin is not yet feature complete:
 
-	* It assumes datum values are >= 0 (no negative values)
-	* Configuration of the start value for range based axes is ignored. This will be necessary for line and
-	  scatterplot charts, if not more chart types
+	* It assumes datum values are >= 0 for horizontal axes (no negative values), but <= is supported for vertical axes
 	* Axes configuration cannot be provided through the widget state. This would also require label selectors to be
 	  defined on the prototype since they can't be serialized into the state. Perhaps as topInputLabelSelector, etc
 	* Axes configuration cannot be provided through the prototype. This is necessary to create widgets with a
@@ -171,7 +169,8 @@ export interface RangeBasedAxis extends SharedConfiguration {
 		 * The end of the range (inclusive). Defaults to the closest stepSize multiple that is greater than or equal to
 		 * the largest datum value.
 		 *
-		 * abs(end) must be a multiple of stepSize, else is rounded up to the nearest stepSize multiple.
+		 * Must be greater than or equal to zero. Must be a multiple of stepSize, else is rounded up to the nearest
+		 * stepSize multiple.
 		 */
 		end?: number;
 
@@ -193,7 +192,8 @@ export interface RangeBasedAxis extends SharedConfiguration {
 		/**
 		 * The starting point of the range. Defaults to zero.
 		 *
-		 * abs(start) must be a multiple of stepSize, else is rounded down to the nearest stepSize multiple.
+		 * Must be less than or equal to zero. Must be a multiple of stepSize, else is rounded down to the nearest
+		 * stepSize multiple.
 		 */
 		start?: number;
 
@@ -280,6 +280,7 @@ export interface AxesMixin<D extends Datum<any>> {
 		index: number,
 		p1: number,
 		p2: number,
+		isNegative: boolean,
 		ticks?: TickConfiguration
 	): VNode;
 
@@ -535,6 +536,7 @@ const createAxes: AxesFactory<any> = compose(<AxesMixin<any>> {
 		index: number,
 		p1: number,
 		p2: number,
+		isNegative: boolean,
 		ticks: TickConfiguration = { length: 0 }
 	) {
 		let x = 0;
@@ -555,13 +557,13 @@ const createAxes: AxesFactory<any> = compose(<AxesMixin<any>> {
 		else if (side === 'left' || side === 'right') {
 			dominantBaseline = dominantBaseline || 'middle';
 			if (anchor === 'start') {
-				y = p2;
+				y = isNegative ? p1 : p2;
 			}
 			else if (anchor === 'middle') {
 				y = p2 - (p2 - p1) / 2;
 			}
 			else if (anchor === 'end') {
-				y = p1;
+				y = isNegative ? p2 : p1;
 			}
 			y += offset;
 		}
@@ -699,7 +701,7 @@ const createAxes: AxesFactory<any> = compose(<AxesMixin<any>> {
 			if (labels && text !== '') {
 				const p1 = isHorizontal ? x : y;
 				const p2 = prev;
-				nodes.push(axes.createAxisLabel(labels, text, side, index, p1, p2, ticks));
+				nodes.push(axes.createAxisLabel(labels, text, side, index, p1, p2, false, ticks));
 			}
 
 			index++;
@@ -724,7 +726,7 @@ const createAxes: AxesFactory<any> = compose(<AxesMixin<any>> {
 		const nodes: VNode[] = [];
 
 		let index = 0;
-		for (const { datum, x1, x2, y1, y2 } of points) {
+		for (const { datum, isNegative, x1, x2, y1, y2 } of points) {
 			index++;
 
 			const p1 = isHorizontal ? x1 : y1;
@@ -743,7 +745,7 @@ const createAxes: AxesFactory<any> = compose(<AxesMixin<any>> {
 			if (labels && labelSelector) {
 				const text = labelSelector(datum);
 				if (text !== '') {
-					nodes.push(axes.createAxisLabel(labels, text, side, index, p1, p2, ticks));
+					nodes.push(axes.createAxisLabel(labels, text, side, index, p1, p2, isNegative, ticks));
 				}
 			}
 		}
@@ -758,7 +760,7 @@ const createAxes: AxesFactory<any> = compose(<AxesMixin<any>> {
 		gridLineLength: number,
 		side: Side,
 		points: Point<D>[],
-		domain: Domain,
+		[domainMin, domainMax]: Domain,
 		chartX2: number,
 		chartY2: number
 	) {
@@ -771,37 +773,59 @@ const createAxes: AxesFactory<any> = compose(<AxesMixin<any>> {
 		const isHorizontal = side === 'bottom' || side === 'top';
 		const nodes: VNode[] = [];
 
-		// FIXME: Handle domain[0]
-		const maxValue = domain[1] || Math.max(...points.map(({ datum: { value } }) => value));
-		let { end = maxValue } = range;
+		let mostNegativeValue = domainMin;
+		let mostPositiveValue = domainMax;
+		// [0, 0] domains should be ignored.
+		if (domainMin === 0 && domainMax === 0) {
+			for (const { datum: { value } } of points) {
+				if (value < mostNegativeValue) {
+					mostNegativeValue = value;
+				}
+				else if (value > mostPositiveValue) {
+					mostPositiveValue = value;
+				}
+			}
+		}
 
-		// Heya! If you're looking to support configuration of the start value, please note that any non-zero start value
-		// will impact the chart position and other axes, and that's not even considering negative values.
-		const start = 0;
+		const { stepSize } = range;
+		let { end = mostPositiveValue, start = mostNegativeValue } = range;
+		// Ensure start and end are multiples of the stepSize.
+		if (end % stepSize > 0) {
+			end = Math.ceil(mostPositiveValue / stepSize) * stepSize;
+		}
+		if (start % stepSize > 0) {
+			start = Math.floor(mostNegativeValue / stepSize) * stepSize;
+		}
+		const delta = end - start;
 
 		const chartSize = isHorizontal ? chartX2 : chartY2;
 		let size = chartSize;
-
-		const { stepSize } = range;
 		let extraSpace = 0;
-		// Ensure max is a multiple of the stepSize.
-		if (end % stepSize > 0) {
-			end = Math.ceil(maxValue / stepSize) * stepSize;
-		}
-		if (!fixed && end !== maxValue) {
+		if (!fixed && (end !== mostPositiveValue || start !== mostNegativeValue)) {
+			const deltaValue = mostPositiveValue - mostNegativeValue;
 			// Adjust size so the steps are scaled correctly.
-			size = chartSize / maxValue * end;
+			size = chartSize / deltaValue * delta;
 			if (size > chartSize) {
 				// Percolate the extra size to the chart.
 				extraSpace = size - chartSize;
 			}
 		}
 
+		// Determine the "zero" point on the vertical axis. (Assumes a vertical axis is being rendered, but this value
+		// is ignored otherwise so no problem if it isn't.)
+		const yZero = mostPositiveValue / (mostPositiveValue - mostNegativeValue) * chartY2;
 		let index = 1;
 		let prev = isHorizontal ? 0 : chartY2;
 		for (let step = start; step <= end; step += stepSize) {
-			const x = isHorizontal ? step / end * size : 0;
-			const y = isHorizontal ? 0 : chartY2 - step / end * size;
+			let x = 0;
+			let y = 0;
+			if (isHorizontal) {
+				// TODO: Support negative values for horizontal axes.
+				x = step / delta * size;
+			}
+			else {
+				y = yZero - step / delta * size;
+			}
 			if (ticks) {
 				const p = isHorizontal ? x : y;
 				nodes.push(axes.createAxisTick(ticks, side, index, p));
@@ -814,7 +838,7 @@ const createAxes: AxesFactory<any> = compose(<AxesMixin<any>> {
 			if (labels && text !== '') {
 				const p1 = isHorizontal ? x : y;
 				const p2 = prev;
-				nodes.push(axes.createAxisLabel(labels, text, side, index, p1, p2, ticks));
+				nodes.push(axes.createAxisLabel(labels, text, side, index, p1, p2, step < 0, ticks));
 			}
 
 			index++;

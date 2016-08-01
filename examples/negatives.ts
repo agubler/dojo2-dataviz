@@ -15,9 +15,8 @@ const basic = (<ColumnChartFactory<number>> createColumnChart)({
 	height: 200,
 	inputSeries: [-5, 5, 10],
 	leftAxis: {
-		inputs: {
-			labelSelector({ input }) { return input; }
-		},
+		labels: { anchor: 'end' },
+		range: { stepSize: 5 },
 		ticks: { length: 5, zeroth: true }
 	},
 	valueSelector(input: number) { return input; },
@@ -39,9 +38,10 @@ const domain = (<ColumnChartFactory<number>> createColumnChart)({
 	inputSeries: [-5, 5, 10],
 	leftAxis: {
 		inputs: {
-			labelSelector({ input }) { return input; }
+			labelSelector({ input }) { return String(input); }
 		},
-		ticks: { length: 5, zeroth: true }
+		labels: { anchor: 'end' },
+		ticks: { anchor: 'end', length: 5, zeroth: true }
 	},
 	valueSelector(input: number) { return input; },
 	width: 100,
@@ -61,9 +61,10 @@ const allNegative = (<ColumnChartFactory<number>> createColumnChart)({
 	inputSeries: [-5, -10],
 	leftAxis: {
 		inputs: {
-			labelSelector({ input }) { return input; }
+			labelSelector({ input }) { return String(input); }
 		},
-		ticks: { length: 5, zeroth: true }
+		labels: { anchor: 'end' },
+		ticks: { anchor: 'end', length: 5, zeroth: true }
 	},
 	valueSelector(input: number) { return input; },
 	width: 100,
@@ -84,9 +85,10 @@ const allNegativeDomain = (<ColumnChartFactory<number>> createColumnChart)({
 	inputSeries: [-5, -10],
 	leftAxis: {
 		inputs: {
-			labelSelector({ input }) { return input; }
+			labelSelector({ input }) { return String(input); }
 		},
-		ticks: { length: 5, zeroth: true }
+		labels: { anchor: 'end' },
+		ticks: { anchor: 'end', length: 5, zeroth: true }
 	},
 	valueSelector(input: number) { return input; },
 	width: 100,
