@@ -241,78 +241,66 @@ const createColumnPlot: ColumnPlotFactory<any> = compose({
 	plot<T>(): ColumnPoint<T>[] {
 		const plot: ColumnPlot<T, ColumnPlotState<T>> = this;
 		const series = columnSeries.get(plot);
-		const { columnHeight, columnSpacing, columnWidth: displayWidth, domain } = plot;
+		const { columnHeight, columnSpacing, columnWidth: displayWidth, domain: [domainMin, domainMax] } = plot;
 
-		let displayHeightCorrection = 1;
-		let positiveHeight = columnHeight;
+		let mostNegativeRelValue = 0;
+		let mostNegativeValue = 0;
+		let mostPositiveRelValue = 0;
+		let mostPositiveValue = 0;
+		for (const { relativeValue, value } of series) {
+			if (relativeValue < mostNegativeRelValue) {
+				mostNegativeRelValue = relativeValue;
+			}
+			else if (relativeValue > mostPositiveRelValue) {
+				mostPositiveRelValue = relativeValue;
+			}
+
+			if (value < mostNegativeValue) {
+				mostNegativeValue = value;
+			}
+			else if (value > mostPositiveValue) {
+				mostPositiveValue = value;
+			}
+		}
 
 		// Ensure that, when rendered, the distance from the bottom of the most negative column (or 0 if there are no
 		// negative columns), to the top of the most positive column (or 0 if there are no positive columns), is equal
 		// to the columnHeight. In other words the columnHeight should control the height of the chart irrespective of
 		// the input values.
-		// {
-			let mostNegative = 0;
-			let mostPositive = 0;
-			for (const { relativeValue } of series) {
-				if (relativeValue < mostNegative) {
-					mostNegative = relativeValue;
-				}
-				if (relativeValue > mostPositive) {
-					mostPositive = relativeValue;
-				}
-			}
-			const delta = mostPositive - mostNegative;
-			displayHeightCorrection /= delta;
-			// if (mostNegative < 0) {
-			// 	positiveHeight = displayHeightCorrection * columnHeight;
-			// }
-		// }
+		let displayHeightCorrection = 1;
+		if (mostNegativeValue < 0) {
+			displayHeightCorrection /= mostPositiveRelValue - mostNegativeRelValue;
+		}
 
 		// Further correct the displayHeight if a domain minimum and/or maximum is specified. Only negative columns
 		// who's value equals the domain minimum, or positive columns who's value equals the domain maximum, must be
 		// rendered with the full column height.
-		if (domain[0] !== 0 || domain[1] !== 0) {
-			const values = series.map(({ value }) => value);
-			// Ensure maxValue is at least 0. It may be negative if the series does not contain any positive
-			// columns, even though the domain accounts for them.
-			let maxValue = Math.max(0, ...values);
-			// Ensure minValue is at most 0. It may be positive if the series does not contain any negative
-			// columns, even though the domain accounts for them.
-			let minValue = Math.min(0, ...values);
-
-			// Ignore domains where the first value is positive, or the second negative. These are not valid domains
-			// for column charts.
-			if (domain[0] < 0) {
-				if (domain[1] === 0) {
-					// Ignore maxValue, no values are supposed to exceed 0.
-					// TODO: Should this raise an error if minValue is >= 0?
-					displayHeightCorrection *= minValue / domain[0];
-					positiveHeight = 0;
-				}
-				else if (domain[1] > 0) {
-					// Assume series does not consist soley of 0 value inputs.
-					const delta = (maxValue - minValue);
-					const correction = delta / (domain[1] - domain[0]);
-					displayHeightCorrection *= correction;
-					// positiveHeight = maxValue / delta * correction * columnHeight;
-				}
+		if (domainMin < 0) {
+			if (domainMax === 0) {
+				displayHeightCorrection *= mostNegativeValue / domainMin;
 			}
-			else if (domain[0] === 0 && domain[1] > 0) {
-				// Ignore minValue, no values are supposed to be below 0.
-				// TODO: Should this raise an error if maxValue is <= 0?
-				displayHeightCorrection *= maxValue / domain[1];
-				// positiveHeight = columnHeight;
+			else if (domainMax > 0) {
+				displayHeightCorrection *= (mostPositiveValue - mostNegativeValue) / (domainMax - domainMin);
 			}
 		}
+		else if (domainMin === 0 && domainMax > 0) {
+			displayHeightCorrection *= mostPositiveValue / domainMax;
+		}
+		// FIXME: Should this raise an error if domainMin > 0 or domainMax < 0? These are not valid domains for column
+		// charts.
 
-		positiveHeight = mostPositive > 0 ? displayHeightCorrection * columnHeight : 0;
+		// Maximum height of positive columns.
+		let positiveHeight = mostPositiveValue === 0 ? 0 : columnHeight;
+		if (mostNegativeValue < 0) {
+			positiveHeight *= displayHeightCorrection;
+		}
 
 		return series.map((column, index) => {
 			const displayHeight = column.relativeValue * displayHeightCorrection * columnHeight;
 			const x1 = (displayWidth + columnSpacing) * index;
 			const x2 = x1 + displayWidth + columnSpacing;
-			const y1 = (displayHeight < 0 ? positiveHeight : positiveHeight - displayHeight);
-			const y2 = (displayHeight < 0 ? positiveHeight - displayHeight : positiveHeight);
+			const y1 = displayHeight < 0 ? positiveHeight : positiveHeight - displayHeight;
+			const y2 = displayHeight < 0 ? positiveHeight - displayHeight : positiveHeight;
 			return {
 				datum: column,
 				displayHeight: Math.abs(displayHeight),
