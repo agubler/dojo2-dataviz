@@ -107,7 +107,7 @@ const createStackedColumnChart: GenericStackedColumnChartFactory<any, any> = cre
 			after: {
 				plot<G, T>(columnPoints: ColumnPoint<T>[]): StackedColumnPoint<G, T>[] {
 					const chart: StackedColumnChart<G, T, StackedColumn<G, T>, StackedColumnChartState<T, StackedColumn<G, T>>> = this;
-					const { columnHeight, columnSpacing, columnWidth, domainMax, stackSpacing } = chart;
+					const { columnHeight, columnSpacing, columnWidth, domain, stackSpacing } = chart;
 					let maxValue = 0;
 					let maxRelativeValue = 0;
 
@@ -150,8 +150,9 @@ const createStackedColumnChart: GenericStackedColumnChartFactory<any, any> = cre
 					// Recompute the domain correction, so that only the stack who's total value equals the domain
 					// maximum is rendered with the full column height.
 					let domainCorrection = 1;
-					if (domainMax > 0) {
-						domainCorrection = maxValue / domainMax;
+					// FIXME: Handle domain[0]
+					if (domain[1] > 0) {
+						domainCorrection = maxValue / domain[1];
 					}
 
 					let offset = 0;

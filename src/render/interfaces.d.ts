@@ -1,5 +1,9 @@
 import { Datum } from '../data/interfaces';
 
+export type Domain = [number, number];
+
+export type DomainOption = number | Domain;
+
 /**
  * Provides the interface for the invalidate() method from dojo-widgets/mixins/createCachedRenderMixin.
  *

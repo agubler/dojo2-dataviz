@@ -4,7 +4,7 @@ import WeakMap from 'dojo-shim/WeakMap';
 import { h, VNode } from 'maquette/maquette';
 
 import { Datum } from '../../data/interfaces';
-import { Invalidatable, Point } from '../interfaces';
+import { Domain, Invalidatable, Point } from '../interfaces';
 
 /* TODO! FIXME!
 
@@ -262,13 +262,13 @@ export interface AxesMixin<D extends Datum<any>> {
 	 */
 	topAxis?: AxisConfiguration<D>;
 
-	createAxes(points: Point<D>[], domainMax: number, chartX2: number, chartY2: number): CreatedAxes;
+	createAxes(points: Point<D>[], domain: Domain, chartX2: number, chartY2: number): CreatedAxes;
 
 	createAxis(
 		cfg: AxisConfiguration<D>,
 		side: Side,
 		points: Point<D>[],
-		domainMax: number,
+		domain: Domain,
 		chartX2: number,
 		chartY2: number
 	): [VNode[], number];
@@ -319,7 +319,7 @@ export interface AxesMixin<D extends Datum<any>> {
 		gridLineLength: number,
 		side: Side,
 		points: Point<D>[],
-		domainMax: number,
+		domain: Domain,
 		chartX2: number,
 		chartY2: number
 	): [VNode[], number];
@@ -388,7 +388,7 @@ const createAxes: AxesFactory<any> = compose(<AxesMixin<any>> {
 		axes.invalidate();
 	},
 
-	createAxes<D extends Datum<any>>(points: Point<D>[], domainMax: number, chartX2: number, chartY2: number): CreatedAxes {
+	createAxes<D extends Datum<any>>(points: Point<D>[], domain: Domain, chartX2: number, chartY2: number): CreatedAxes {
 		const axes: Axes<D> = this;
 		const configuration = shadowConfiguration.get(axes);
 
@@ -398,22 +398,22 @@ const createAxes: AxesFactory<any> = compose(<AxesMixin<any>> {
 		};
 
 		if (configuration.bottom) {
-			const [nodes, extra] = axes.createAxis(configuration.bottom, 'bottom', points, domainMax, chartX2, chartY2);
+			const [nodes, extra] = axes.createAxis(configuration.bottom, 'bottom', points, domain, chartX2, chartY2);
 			result.bottom = nodes;
 			result.extraWidth = Math.max(result.extraWidth, extra);
 		}
 		if (configuration.left) {
-			const [nodes, extra] = axes.createAxis(configuration.left, 'left', points, domainMax, chartX2, chartY2);
+			const [nodes, extra] = axes.createAxis(configuration.left, 'left', points, domain, chartX2, chartY2);
 			result.left = nodes;
 			result.extraHeight = Math.max(result.extraHeight, extra);
 		}
 		if (configuration.right) {
-			const [nodes, extra] = axes.createAxis(configuration.right, 'right', points, domainMax, chartX2, chartY2);
+			const [nodes, extra] = axes.createAxis(configuration.right, 'right', points, domain, chartX2, chartY2);
 			result.right = nodes;
 			result.extraHeight = Math.max(result.extraHeight, extra);
 		}
 		if (configuration.top) {
-			const [nodes, extra] = axes.createAxis(configuration.top, 'top', points, domainMax, chartX2, chartY2);
+			const [nodes, extra] = axes.createAxis(configuration.top, 'top', points, domain, chartX2, chartY2);
 			result.top = nodes;
 			result.extraWidth = Math.max(result.extraWidth, extra);
 		}
@@ -424,7 +424,7 @@ const createAxes: AxesFactory<any> = compose(<AxesMixin<any>> {
 		cfg: AxisConfiguration<D>,
 		side: Side,
 		points: Point<D>[],
-		domainMax: number,
+		domain: Domain,
 		chartX2: number,
 		chartY2: number
 	): [VNode[], number] {
@@ -478,7 +478,7 @@ const createAxes: AxesFactory<any> = compose(<AxesMixin<any>> {
 		}
 		else if (isRangeBased(cfg)) {
 			let stepNodes: VNode[];
-			[stepNodes, extraSpace] = axes.createRangeBasedAxis(cfg, labels, ticks, gridLineLength, side, points, domainMax, chartX2, chartY2);
+			[stepNodes, extraSpace] = axes.createRangeBasedAxis(cfg, labels, ticks, gridLineLength, side, points, domain, chartX2, chartY2);
 			nodes.push(...stepNodes);
 		}
 
@@ -758,7 +758,7 @@ const createAxes: AxesFactory<any> = compose(<AxesMixin<any>> {
 		gridLineLength: number,
 		side: Side,
 		points: Point<D>[],
-		domainMax: number,
+		domain: Domain,
 		chartX2: number,
 		chartY2: number
 	) {
@@ -771,7 +771,8 @@ const createAxes: AxesFactory<any> = compose(<AxesMixin<any>> {
 		const isHorizontal = side === 'bottom' || side === 'top';
 		const nodes: VNode[] = [];
 
-		const maxValue = domainMax || Math.max(...points.map(({ datum: { value } }) => value));
+		// FIXME: Handle domain[0]
+		const maxValue = domain[1] || Math.max(...points.map(({ datum: { value } }) => value));
 		let { end = maxValue } = range;
 
 		// Heya! If you're looking to support configuration of the start value, please note that any non-zero start value
