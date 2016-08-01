@@ -243,37 +243,42 @@ const createColumnPlot: ColumnPlotFactory<any> = compose({
 		const series = columnSeries.get(plot);
 		const { columnHeight, columnSpacing, columnWidth: displayWidth, domain } = plot;
 
+		let displayHeightCorrection = 1;
+		let yCorrection = 0;
+
 		// Ensure that, when rendered, the distance from the bottom of the most negative column (or 0 if there are no
 		// negative columns), to the top of the most positive column (or 0 if there are no positive columns), is equal
 		// to the columnHeight. In other words the columnHeight should control the height of the chart irrespective of
 		// the input values.
-		let mostNegative = 0;
-		let mostPositive = 0;
-		for (const { relativeValue } of series) {
-			if (relativeValue < mostNegative) {
-				mostNegative = relativeValue;
+		{
+			let mostNegative = 0;
+			let mostPositive = 0;
+			for (const { relativeValue } of series) {
+				if (relativeValue < mostNegative) {
+					mostNegative = relativeValue;
+				}
+				if (relativeValue > mostPositive) {
+					mostPositive = relativeValue;
+				}
 			}
-			if (relativeValue > mostPositive) {
-				mostPositive = relativeValue;
-			}
+			const delta = mostPositive - mostNegative;
+			displayHeightCorrection /= delta;
+			// Adjust the y positions to account for space used for the negative columns.
+			yCorrection = mostNegative / delta * columnHeight;
 		}
-		const delta = mostPositive - mostNegative;
-		let domainCorrection = 1 / delta;
-		// Adjust the y positions to account for space used for the negative columns.
-		let yCorrection = mostNegative / delta * columnHeight;
 
-		// The relative values computed for each column do not take any domain maximum into account. Correct them if
-		// necessary, so that only the column who's value equals the domain maximum is rendered with the full column
-		// height.
-		// FIXME: Handle domain[0]
-		if (domain[1] > 0) {
-			const maxValue = Math.max(...series.map(({ value }) => value));
-			domainCorrection = maxValue / domain[1];
+		// Further correct the displayHeight if a domain minimum and/or maximum is specified. Only negative columns
+		// who's value equals the domain minimum, or positive columns who's value equals the domain maximum, must be
+		// rendered with the full column height.
+		if (domain[0] !== 0 || domain[1] !== 0) {
+			const values = series.map(({ value }) => value);
+			const maxValue = Math.max(...values);
+			const minValue = Math.min(...values);
+			displayHeightCorrection *= (maxValue - minValue) / (domain[1] - domain[0]);
 		}
 
 		return series.map((column, index) => {
-			const correctedRelativeValue = column.relativeValue * domainCorrection;
-			const displayHeight = correctedRelativeValue * columnHeight;
+			const displayHeight = column.relativeValue * displayHeightCorrection * columnHeight;
 			const x1 = (displayWidth + columnSpacing) * index;
 			const x2 = x1 + displayWidth + columnSpacing;
 			const y1 = yCorrection + (displayHeight < 0 ? columnHeight : columnHeight - displayHeight);
