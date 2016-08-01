@@ -243,10 +243,28 @@ const createColumnPlot: ColumnPlotFactory<any> = compose({
 		const series = columnSeries.get(plot);
 		const { columnHeight, columnSpacing, columnWidth: displayWidth, domain } = plot;
 
+		// Ensure that, when rendered, the distance from the bottom of the most negative column (or 0 if there are no
+		// negative columns), to the top of the most positive column (or 0 if there are no positive columns), is equal
+		// to the columnHeight. In other words the columnHeight should control the height of the chart irrespective of
+		// the input values.
+		let mostNegative = 0;
+		let mostPositive = 0;
+		for (const { relativeValue } of series) {
+			if (relativeValue < mostNegative) {
+				mostNegative = relativeValue;
+			}
+			if (relativeValue > mostPositive) {
+				mostPositive = relativeValue;
+			}
+		}
+		const delta = mostPositive - mostNegative;
+		let domainCorrection = 1 / delta;
+		// Adjust the y positions to account for space used for the negative columns.
+		let yCorrection = mostNegative / delta * columnHeight;
+
 		// The relative values computed for each column do not take any domain maximum into account. Correct them if
 		// necessary, so that only the column who's value equals the domain maximum is rendered with the full column
 		// height.
-		let domainCorrection = 1;
 		// FIXME: Handle domain[0]
 		if (domain[1] > 0) {
 			const maxValue = Math.max(...series.map(({ value }) => value));
@@ -258,16 +276,17 @@ const createColumnPlot: ColumnPlotFactory<any> = compose({
 			const displayHeight = correctedRelativeValue * columnHeight;
 			const x1 = (displayWidth + columnSpacing) * index;
 			const x2 = x1 + displayWidth + columnSpacing;
-			const y1 = columnHeight - displayHeight;
+			const y1 = yCorrection + (displayHeight < 0 ? columnHeight : columnHeight - displayHeight);
+			const y2 = yCorrection + (displayHeight < 0 ? columnHeight - displayHeight : columnHeight);
 			return {
 				datum: column,
-				displayHeight,
+				displayHeight: Math.abs(displayHeight),
 				displayWidth,
 				offsetLeft: columnSpacing / 2,
 				x1,
 				x2,
 				y1,
-				y2: columnHeight
+				y2
 			};
 		});
 	},

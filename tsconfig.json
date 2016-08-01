@@ -21,6 +21,7 @@
 		"./examples/app.ts",
 		"./examples/axes.ts",
 		"./examples/index.ts",
+		"./examples/negatives.ts",
 		"./examples/play-counts.ts",
 		"./examples/stdout.ts",
 		"./src/data/accumulate.ts",
