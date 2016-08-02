@@ -19,6 +19,12 @@ import { Point } from './interfaces';
 export interface GroupedColumn<G, T> extends Datum<G> {
 	columns: Column<T>[];
 	totalValue: number;
+
+	/**
+	 * Assuming all columns in the group are positive, the largest value in the gorup. If all columns are negative
+	 * this is the smallest value. If the group contains both positive and negative columns the value is undetermined.
+	 */
+	value: number;
 }
 
 export interface GroupedColumnPoint<G, T> extends Point<GroupedColumn<G, T>> {
@@ -137,7 +143,13 @@ const createGroupedColumnChart: GenericGroupedColumnChartFactory<any, any> = cre
 						record.columnPoints.push(shallowCopy);
 						record.columns.push(point.datum);
 						record.totalValue += value;
-						record.value = Math.max(record.value, value);
+						if (point.isNegative) {
+							record.value = Math.min(record.value, value);
+						}
+						else {
+							// Note that the expected value for mixed groups is undefined.
+							record.value = Math.max(record.value, value);
+						}
 						record.y1 = Math.min(record.y1, point.y1);
 					}
 
